@@ -8,12 +8,12 @@
 <style>
 :root, :root[data-theme=dark] { color-scheme:dark;
   --bg:#070b14; --panel:#0d1322; --card:#131b2e; --card2:#1a2540; --line:#22304a; --ink:#e6edf7; --muted:#8a9bb8; --dim:#5b6b88;
-  --route:#5ea2ff; --route2:#2f6fe0; --sample:#e879f9; --ramp:#4ade80; --warn:#f87171; --ok:#4ade80;
+  --route:#5ea2ff; --route2:#2f6fe0; --cur:#22d3ee; --wind:#e2e8f0; --sample:#e879f9; --ramp:#4ade80; --warn:#f87171; --ok:#4ade80;
   --night:rgba(99,102,241,.22); --nightInk:#a5b4fc; --halo:#070b14; --shadow:0 8px 30px rgba(0,0,0,.45); --glass:rgba(13,19,34,.86);
 }
 :root[data-theme=light] { color-scheme:light;
   --bg:#eef2f7; --panel:#ffffff; --card:#f6f8fb; --card2:#e8eef8; --line:#dfe5ee; --ink:#0f172a; --muted:#5b6b82; --dim:#94a3b8;
-  --route:#1d4ed8; --route2:#1d4ed8; --sample:#c026d3; --ramp:#16a34a; --warn:#dc2626; --ok:#15803d;
+  --route:#1d4ed8; --route2:#1d4ed8; --cur:#0e7490; --wind:#334155; --sample:#c026d3; --ramp:#16a34a; --warn:#dc2626; --ok:#15803d;
   --night:rgba(30,27,75,.10); --nightInk:#4338ca; --halo:#ffffff; --shadow:0 6px 24px rgba(15,23,42,.14); --glass:rgba(255,255,255,.9);
 }
 * { box-sizing:border-box; }
@@ -93,6 +93,13 @@ ol.stops li:hover { background:var(--card2); }
 .stopn.sample { background:var(--sample); color:#2a0530; width:24px; height:24px; } .stopn.hl { transform:scale(1.55); }
 .arrow { color:var(--route); font-size:12px; line-height:1; text-shadow:0 0 3px var(--halo),0 0 2px var(--halo); }
 .rampm { width:16px; height:16px; border-radius:50%; background:var(--ramp); border:3px solid var(--halo); box-shadow:0 0 0 1.5px var(--ramp); }
+.wxa { position:absolute; left:0; top:0; transform-origin:50% 50%; }
+.wxl { position:absolute; left:10px; top:-6px; font:700 10px 'JetBrains Mono',monospace; white-space:nowrap; text-shadow:0 0 3px var(--halo),0 0 3px var(--halo),0 0 2px var(--halo); }
+.wxl.cur { color:var(--cur); } .wxl.wind { color:var(--wind); }
+input[type=date] { width:100%; background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:500 13px Inter; color-scheme:inherit; }
+.wxstatus { font-size:11.5px; color:var(--muted); display:flex; gap:6px; align-items:center; }
+.wxstatus i { width:8px; height:8px; border-radius:50%; background:var(--dim); display:inline-block; } .wxstatus.ok i { background:var(--ok); } .wxstatus.err i { background:var(--warn); }
+.cond { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; font-size:12.5px; margin-top:6px; } .cond b { font-family:'JetBrains Mono',monospace; }
 .boat { width:18px; height:18px; border-radius:50%; background:#fff; border:4px solid #f59e0b; box-shadow:0 0 0 6px rgba(245,158,11,.28), 0 2px 8px rgba(0,0,0,.5); }
 .leaflet-container { font-family:Inter, sans-serif; background:var(--bg); }
 .leaflet-tooltip { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow); font:500 12px Inter; padding:7px 10px; }
@@ -108,7 +115,7 @@ ol.stops li:hover { background:var(--card2); }
 <body>
 <div class="app" id="app">
   <header>
-    <div class="brand"><div class="logo"></div>Day 1 Route Planner<small>Mon Oct 12 &middot; Monterey Bay</small></div>
+    <div class="brand"><div class="logo"></div>Day 1 Route Planner<small id="sub">Monterey Bay</small></div>
     <div class="spacer"></div>
     <div class="pill" id="basemap"></div>
     <button class="iconbtn" id="theme">&#9681; Theme</button>
@@ -133,12 +140,18 @@ ol.stops li:hover { background:var(--card2); }
       <div><div class="label">Launch <b id="vLaunch"></b></div><input class="sl" type="range" id="launch" min="6" max="14" step="0.25"></div>
       <div><div class="label">Sampling at MSB1 <b id="vSample"></b></div><input class="sl" type="range" id="sample" min="0.5" max="4" step="0.25"></div>
       <div><div class="label">Each pass <b id="vPass"></b></div><input class="sl" type="range" id="pass" min="0" max="45" step="5"></div>
+      <div><div class="label">Mission date (for the live forecast)</div><input type="date" id="date"></div>
+      <div><div class="label">Speed loss per metre of waves <b id="vWave"></b></div><input class="sl" type="range" id="wave" min="0" max="20" step="1"></div>
+      <div class="wxstatus" id="wxstatus"><i></i><span></span></div>
     </div></div>
     <div class="sec kpis" id="kpis"></div>
     <div class="sec"><div class="label">Back at ramp vs speed <span>click a speed</span></div><div class="chart" id="speedchart"></div></div>
     <div class="sec"><div class="label">Stops in order <span>click to jump</span></div><ol class="stops" id="stops"></ol></div>
     <div class="note">
-      <span class="warnbox"><b>Not modelled:</b> swell and waves. Keep a buffer.</span>
+      <span class="warnbox"><b>Waves:</b> shown from the forecast but they only slow the vessel if you set "speed loss per metre of waves" (no validated wave model for this vessel; ask the operator). Keep a buffer.</span>
+      <b>Live</b> uses the Open-Meteo forecast for the chosen date: Copernicus global surface currents (~8 km, tides included), 10 m wind
+      and gusts, and wave height. Each leg is stepped every 300 m: the vessel crabs into the cross-current, and the current plus 2&nbsp;% of the
+      wind adds to or subtracts from its speed along the track, at the forecast hour it is there. The coarse current grid misses small nearshore eddies.<br><br>
       Transit times come from the route planner: straight legs through the waypoints, NOAA WCOFS surface currents plus 2&nbsp;% wind
       drift from Sep 27 / 29 / 30, lined up with a 10:00 launch ("Slowest" takes the slowest of the three for each leg). Moving the launch
       time or dwell keeps those leg times, so with currents the result is approximate; with "None" it is exact. Passes stay 200 m off the
@@ -154,16 +167,18 @@ const Q = new URLSearchParams(location.search);
 const S = { route: Q.get("route") || "nocarmel", kn: +(Q.get("kn") || 2), cur: Q.get("cur") || "worst",
             launch: +(Q.get("launch") || 10), sample: +(Q.get("sample") || 2.5), pass: +(Q.get("pass") ?? 15),
             base: Q.get("base") || "dark", t: +(Q.get("t") || 0),
-            layers: { arrows: true, numbers: true, labels: true, keepout: true, unvisited: true, boat: true } };
+            layers: { arrows: true, numbers: true, labels: true, keepout: true, unvisited: true, boat: true, cur: true, wind: true } };
+const _d = new Date(); S.date = Q.get("date") || `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
+S.wave = +(Q.get("wave") || 0);
 if (Q.get("theme") === "light") document.documentElement.dataset.theme = "light";
 const ROUTE_UI = { nocarmel: ["Route B", "Marina + Hopkins"], carmel: ["Route A", "B + Carmel"] };
-const CUR_UI = { worst: "Slowest", still: "None", sep27: "Sep 27", sep29: "Sep 29", sep30: "Sep 30" };
+const CUR_UI = { live: "Live", worst: "Slowest", still: "None", sep27: "Sep 27", sep29: "Sep 29", sep30: "Sep 30" };
 const SPEED_SUB = { 2: "cruise", 6: "max", 8: "unofficial" };
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 // ---------- schedule, in hours from Mon 00:00 ----------
 function schedule(route, kn, cur) {
-  const R = D.routes[route], legs = D.legs[`${route}|${kn}|${cur}`];
+  const R = D.routes[route], legs = legsFor(route, kn, cur);
   let t = S.launch; const out = [];
   R.stops.forEach((s, i) => {
     if (i === 0) { out.push({ ...s, arr: null, dep: t, leg: 0, dwell: 0 }); return; }
@@ -178,7 +193,8 @@ const isNext = h => h >= 24;
 const isNight = h => (h >= D.sunset && h < D.sunrise) || h < D.sunrise - 24;
 const kmOf = route => D.routes[route].stops.reduce((a, s) => a + s.km, 0);
 const kwh = (route, kn) => kmOf(route) * D.whPerKm2kn * (kn / 2) ** 2 / 1000;
-const when = h => `${isNext(h) ? "Tue " : ""}${hm(h)}`;
+const dayName = h => { const d = new Date(S.date + "T12:00:00"); d.setDate(d.getDate() + Math.floor(h / 24)); return d.toLocaleDateString("en-US", { weekday: "short" }); };
+const when = h => `${isNext(h) ? dayName(h) + " " : ""}${hm(h)}`;
 
 // ---------- map ----------
 const map = L.map("map", { zoomControl: true, zoomSnap: 0.25 });
@@ -193,8 +209,9 @@ const BASES = {
 };
 let baseLayers = [];
 function setBase(k) { baseLayers.forEach(l => map.removeLayer(l)); baseLayers = BASES[k][1](); baseLayers.forEach(l => l.addTo(map).bringToBack()); S.base = k; pills(); }
+map.createPane("wx").style.zIndex = 405;
 ["route", "arrows", "rx", "stops", "boat"].forEach((p, i) => map.createPane(p).style.zIndex = 410 + i * 60);
-const G = { route: L.layerGroup().addTo(map), arrows: L.layerGroup().addTo(map), keepout: L.layerGroup().addTo(map),
+const G = { wx: L.layerGroup().addTo(map), route: L.layerGroup().addTo(map), arrows: L.layerGroup().addTo(map), keepout: L.layerGroup().addTo(map),
             rx: L.layerGroup().addTo(map), stops: L.layerGroup().addTo(map), boat: L.layerGroup().addTo(map) };
 const tri = (w = 20) => `<svg width="${w}" height="${w * .9}" viewBox="0 0 20 18"><path d="M10 1.5 L18.5 16.5 L1.5 16.5 Z" fill="#facc15" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 
@@ -281,6 +298,7 @@ function render() {
     <div class="kpi"><div class="k">Sampling ends</div><div class="v">${hm(msb.dep)}</div></div>
     <div class="kpi"><div class="k">Back at ramp</div><div class="v">${hm(end)}${endTag}</div></div>
     <div class="kpi"><div class="k">Total</div><div class="v">${(end - S.launch).toFixed(1)} h <small>${kmOf(S.route).toFixed(1)} km</small></div></div>
+    ${condCard()}
     <div class="kpi" style="grid-column:span 2"><div class="k">Battery, rough</div><div class="v">${e.toFixed(1)} kWh ${e > 3.5 ? '<span class="tag warn">over standard 3.5 kWh</span>' : '<span class="tag ok">within 3.5 kWh</span>'}</div></div>`;
 
   const flag = h => isNext(h) ? '<span class="n">next day</span>' : isNight(h) ? '<span class="n">dark</span>' : "";
@@ -298,7 +316,7 @@ function render() {
     el.onmouseenter = () => { document.getElementById("mk" + i)?.classList.add("hl"); stopMk[i]?.openTooltip(); };
     el.onmouseleave = () => { document.getElementById("mk" + i)?.classList.remove("hl"); stopMk[i]?.closeTooltip(); };
   });
-  timeline(end); speedChart(); controls(); legend(); updateBoat();
+  timeline(end); speedChart(); controls(); legend(); wxHour = -1; updateBoat();
 }
 
 function timeline(end) {
@@ -321,11 +339,15 @@ function updateBoat() {
   if (S.layers.boat) L.marker(p.ll, { pane: "boat", interactive: false, icon: L.divIcon({ className: "", html: '<div class="boat"></div>', iconSize: [18, 18] }) }).addTo(G.boat);
   const c = document.getElementById("cursor"); c.setAttribute("x1", S.t * 1000); c.setAttribute("x2", S.t * 1000);
   document.getElementById("tpos").value = Math.round(S.t * 1000);
-  document.getElementById("clock").innerHTML = `${isNext(t) ? "Tue" : "Mon"} ${hm(t)}${isNight(t) ? " &#9790;" : " &#9788;"}<small>${p.what}</small>`;
+  let wxTxt = "";
+  if (WX.ok && (S.layers.cur || S.layers.wind || S.cur === "live")) { const c = idw(WX.cur, p.ll[0], p.ll[1], t, ["u", "v", "hs"]), w = idw(WX.wind, p.ll[0], p.ll[1], t, ["u", "v", "g"]);
+    wxTxt = ` &middot; current ${(Math.hypot(c.u, c.v) / 0.514444).toFixed(1)} kn, wind ${(Math.hypot(w.u, w.v) / 0.514444).toFixed(0)} kn, waves ${c.hs.toFixed(1)} m`; }
+  document.getElementById("clock").innerHTML = `${dayName(t)} ${hm(t)}${isNight(t) ? " &#9790;" : " &#9788;"}<small>${p.what}${wxTxt}</small>`;
+  drawWx(t);
 }
 
 function speedChart() {
-  const W = 400, H = 175, m = { l: 66, r: 12, t: 16, b: 24 }, sp = D.speeds, curs = ["still", "sep27", "sep29", "sep30"];
+  const W = 400, H = 175, m = { l: 66, r: 12, t: 16, b: 24 }, sp = D.speeds, curs = ["still", "sep27", "sep29", "sep30"].concat(WX.ok ? ["live"] : []);
   const ends = {}; curs.concat(["worst"]).forEach(c => ends[c] = sp.map(k => { const s = schedule(S.route, k, c); return s[s.length - 1].arr; }));
   const all = Object.values(ends).flat(), y0 = Math.floor(Math.min(...all) - .5), y1 = Math.ceil(Math.max(...all, D.sunset) + .5);
   const X = k => m.l + (k - sp[0]) / (sp[sp.length - 1] - sp[0]) * (W - m.l - m.r), Y = h => m.t + (y1 - h) / (y1 - y0) * (H - m.t - m.b);
@@ -333,7 +355,7 @@ function speedChart() {
   let g = ny1 > ny0 ? `<rect x="${m.l}" y="${Y(ny1)}" width="${W - m.l - m.r}" height="${Y(ny0) - Y(ny1)}" fill="${css("--night")}"/>` : "";
   const step = (y1 - y0) > 14 ? 4 : 2;
   for (let h = Math.ceil(y0 / step) * step; h <= y1; h += step)
-    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(h)}" y2="${Y(h)}" stroke="${css("--line")}"/><text x="${m.l - 6}" y="${Y(h) + 3.5}" text-anchor="end">${isNext(h) ? "Tue " : ""}${hm(h)}</text>`;
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(h)}" y2="${Y(h)}" stroke="${css("--line")}"/><text x="${m.l - 6}" y="${Y(h) + 3.5}" text-anchor="end">${isNext(h) ? dayName(h) + " " : ""}${hm(h)}</text>`;
   if (D.sunset > y0 && D.sunset < y1) g += `<text x="${W - m.r - 4}" y="${Y(D.sunset) - 5}" text-anchor="end" style="fill:${css("--nightInk")};font-weight:600">sunset ${hm(D.sunset)}</text>`;
   curs.forEach(c => g += `<polyline points="${sp.map((k, i) => `${X(k)},${Y(ends[c][i])}`).join(" ")}" fill="none" stroke="${css("--dim")}" stroke-width="1" opacity=".6"/>`);
   g += `<polyline points="${sp.map((k, i) => `${X(k)},${Y(ends[S.cur][i])}`).join(" ")}" fill="none" stroke="${css("--route")}" stroke-width="2.5"/>`;
@@ -359,6 +381,7 @@ function controls() {
   document.getElementById("vLaunch").textContent = hm(S.launch);
   document.getElementById("vSample").textContent = `${S.sample} h`;
   document.getElementById("vPass").textContent = `${S.pass} min`;
+  document.getElementById("vWave").textContent = `${S.wave} %`; wxStatus();
 }
 function pills() {
   const el = document.getElementById("basemap");
@@ -376,7 +399,8 @@ function legend() {
     <div><i class="boat" style="width:12px;height:12px;border-width:3px;box-shadow:none"></i>vessel at the timeline time</div>`;
 }
 const LAYER_UI = { arrows: "Direction arrows", numbers: "Stop numbers", labels: "Receiver labels", keepout: "100 m keep-out circles",
-                   unvisited: "Receivers not on route", boat: "Vessel position" };
+                   unvisited: "Receivers not on route", boat: "Vessel position",
+                   cur: "Live currents (arrows, kn)", wind: "Live wind (arrows, kn)" };
 function layersUI() {
   const el = document.getElementById("layers");
   el.innerHTML = `<div class="h" id="layersH">Layers <span>&#9662;</span></div>` + Object.entries(LAYER_UI).map(([k, n]) =>
@@ -404,5 +428,94 @@ document.getElementById("theme").onclick = () => {
 };
 document.getElementById("focus").onclick = () => { document.getElementById("app").classList.toggle("focus"); setTimeout(() => { map.invalidateSize(); drawArrows(); }, 60); };
 map.on("zoomend", drawArrows);
-setBase(S.base); layersUI(); render();
+// ---------- live forecast (Open-Meteo, no key) ----------
+const WX = { ok: false, status: "Loading live forecast...", cls: "" };
+const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+async function fetchWx() {
+  WX.ok = false; WX.status = `Loading live forecast for ${S.date}...`; WX.cls = ""; wxStatus();
+  const lats = [], lons = [];
+  for (let la = 36.54; la <= 36.745; la += 0.04) for (let lo = -122.02; lo <= -121.79; lo += 0.044) { lats.push(la.toFixed(3)); lons.push(lo.toFixed(3)); }
+  const range = `start_date=${S.date}&end_date=${addDays(S.date, 1)}&timezone=America%2FLos_Angeles`;
+  const get = u => fetch(u).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.reason || r.status)));
+  try {
+    const [m, w] = await Promise.all([
+      get(`https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lons}&hourly=ocean_current_velocity,ocean_current_direction,wave_height&cell_selection=sea&${range}`),
+      get(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&${range}`)]);
+    const uniq = (arr, f) => { const seen = new Map(); [].concat(arr).forEach(x => { const k = x.latitude.toFixed(4) + "," + x.longitude.toFixed(4); if (!seen.has(k) && x.hourly) seen.set(k, f(x)); }); return [...seen.values()]; };
+    WX.cur = uniq(m, x => { const s = x.hourly.ocean_current_velocity, d = x.hourly.ocean_current_direction;   // km/h, direction the current flows TO
+      return { lat: x.latitude, lon: x.longitude, u: s.map((v, i) => v == null ? null : v / 3.6 * Math.sin(toRad(d[i]))),
+               v: s.map((v, i) => v == null ? null : v / 3.6 * Math.cos(toRad(d[i]))), hs: x.hourly.wave_height.map(v => v ?? 0) }; })
+      .filter(p => p.u.some(v => v != null));
+    WX.wind = uniq(w, x => { const s = x.hourly.wind_speed_10m, d = x.hourly.wind_direction_10m;                // m/s, direction the wind comes FROM
+      return { lat: x.latitude, lon: x.longitude, u: s.map((v, i) => -v * Math.sin(toRad(d[i]))), v: s.map((v, i) => -v * Math.cos(toRad(d[i]))), g: x.hourly.wind_gusts_10m }; });
+    if (!WX.cur.length || !WX.wind.length) throw "no data for this date";
+    WX.ok = true; WX.cls = "ok"; WX.status = `Live forecast for ${new Date(S.date + "T12:00:00").toDateString().slice(0, 10)} loaded (Open-Meteo)`;
+    if (!Q.get("cur")) S.cur = "live";
+  } catch (e) {
+    WX.cls = "err"; WX.status = `Live forecast unavailable: ${e}. Forecasts reach about 7 days ahead.`; if (S.cur === "live") S.cur = "worst";
+  }
+  wxHour = -1; render();
+}
+function wxStatus() { document.getElementById("sub").textContent = `${new Date(S.date + "T12:00:00").toDateString().slice(0, 10)} \u00b7 Monterey Bay`; const el = document.getElementById("wxstatus"); el.className = "wxstatus " + WX.cls; el.querySelector("span").textContent = WX.status; }
+function idw(pts, lat, lon, t, keys) {          // inverse-distance weights in space, linear in time between forecast hours
+  const n = pts[0][keys[0]].length - 1, i0 = Math.max(0, Math.min(n, Math.floor(t))), i1 = Math.min(n, i0 + 1), f = Math.max(0, Math.min(1, t - i0));
+  let W = 0; const out = {}; keys.forEach(k => out[k] = 0);
+  const cl = Math.cos(toRad(lat));
+  pts.forEach(p => { if (p[keys[0]][i0] == null) return;
+    const dx = (p.lon - lon) * cl, dy = p.lat - lat, w = 1 / (dx * dx + dy * dy + 1e-6); W += w;
+    keys.forEach(k => { const a = p[k][i0] ?? 0, b = p[k][i1] ?? a; out[k] += w * (a + (b - a) * f); }); });
+  keys.forEach(k => out[k] = W ? out[k] / W : 0); return out;
+}
+function liveLegs(route, kn) {
+  const R = D.routes[route], tr = R.track, V0 = kn * 0.514444, legs = [0], stats = [null]; let t = S.launch;
+  R.stops.forEach((s, i) => { if (i === 0) return;
+    const p = R.stops[i - 1]; let h = 0, par = 0, n = 0, hard = false, maxW = 0, maxG = 0, maxH = 0;
+    for (let k = p.ti; k < s.ti; k++) {
+      const a = tr[k], b = tr[k + 1], Lm = map.distance(a, b); if (Lm < 1) continue;
+      const ang = toRad(bearing(a, b)), ex = Math.sin(ang), ey = Math.cos(ang), N = Math.max(1, Math.ceil(Lm / 300)), ds = Lm / N;
+      for (let j = 0; j < N; j++) {
+        const f = (j + .5) / N, la = a[0] + f * (b[0] - a[0]), lo = a[1] + f * (b[1] - a[1]), tt = t + h;
+        const c = idw(WX.cur, la, lo, tt, ["u", "v", "hs"]), w = idw(WX.wind, la, lo, tt, ["u", "v", "g"]);
+        const dx = c.u + 0.02 * w.u, dy = c.v + 0.02 * w.v, dpar = dx * ex + dy * ey, dperp = Math.abs(dx * ey - dy * ex);
+        const V = V0 * Math.max(0.2, 1 - S.wave / 100 * c.hs);
+        let sog = dperp < V ? Math.sqrt(V * V - dperp * dperp) + dpar : 0; if (sog < 0.1) { sog = 0.1; hard = true; }
+        h += ds / sog / 3600; par += dpar; n++;
+        maxW = Math.max(maxW, Math.hypot(w.u, w.v)); maxG = Math.max(maxG, w.g || 0); maxH = Math.max(maxH, c.hs);
+      }
+    }
+    legs.push(h); stats.push({ par: n ? par / n : 0, maxW, maxG, maxH, hard });
+    t += h + (s.kind === "station" ? S.sample : s.kind === "pass" ? S.pass / 60 : 0);
+  });
+  return { legs, stats };
+}
+function legsFor(route, kn, cur) { return cur === "live" && WX.ok ? liveLegs(route, kn).legs : D.legs[`${route}|${kn}|${cur === "live" ? "worst" : cur}`]; }
+function condCard() {
+  if (!(WX.ok && S.cur === "live")) return "";
+  const st = liveLegs(S.route, S.kn).stats.slice(1), ms = 0.514444;
+  const still = D.legs[`${S.route}|${S.kn}|still`].reduce((a, b) => a + b, 0), live = liveLegs(S.route, S.kn).legs.reduce((a, b) => a + b, 0);
+  const par = st.reduce((a, x) => a + x.par, 0) / st.length / ms, dmin = (live - still) * 60;
+  const mx = k => Math.max(...st.map(x => x[k]));
+  return `<div class="kpi" style="grid-column:span 2"><div class="k">Live conditions along the route</div>
+    <div class="v">${dmin >= 0 ? "+" : ""}${dmin.toFixed(0)} min <small>vs still water</small>${st.some(x => x.hard) ? '<span class="tag warn">cross-current too strong on a leg</span>' : ""}</div>
+    <div class="cond"><span>Avg drift along track (current + 2 % wind)</span><b>${par >= 0 ? "+" : ""}${par.toFixed(2)} kn ${par >= 0 ? "(helps)" : "(against)"}</b>
+      <span>Wind max / gust</span><b>${(mx("maxW") / ms).toFixed(0)} / ${(mx("maxG") / ms).toFixed(0)} kn</b>
+      <span>Waves max</span><b>${mx("maxH").toFixed(1)} m</b></div></div>`;
+}
+let wxHour = -1;
+function wxArrow(color, len, ang) {
+  return `<svg class="wxa" width="14" height="${len}" viewBox="0 0 14 ${len}" style="transform:translate(-7px,${-len / 2}px) rotate(${ang}deg)">
+    <path d="M7 ${len - 1} L7 5" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/><path d="M2 8 L7 1 L12 8 Z" fill="${color}"/></svg>`;
+}
+function drawWx(t) {
+  const hr = Math.round(t); if (hr === wxHour) return; wxHour = hr; G.wx.clearLayers(); if (!WX.ok) return;
+  const draw = (pts, key, color, scale) => pts.forEach(p => { const i = Math.max(0, Math.min(p.u.length - 1, hr)), u = p.u[i], v = p.v[i]; if (u == null) return;
+    const kn = Math.hypot(u, v) / 0.514444, ang = Math.atan2(u, v) * 180 / Math.PI, len = Math.round(12 + Math.min(34, kn * scale));
+    L.marker([p.lat, p.lon], { pane: "wx", interactive: false, icon: L.divIcon({ className: "", iconSize: [0, 0],
+      html: `<div style="position:relative">${wxArrow(color, len, ang)}<span class="wxl ${key}">${kn.toFixed(key === "cur" ? 1 : 0)}</span></div>` }) }).addTo(G.wx); });
+  if (S.layers.cur) draw(WX.cur, "cur", css("--cur"), 40);
+  if (S.layers.wind) draw(WX.wind, "wind", css("--wind"), 1.6);
+}
+const dateEl = document.getElementById("date"); dateEl.value = S.date; dateEl.onchange = () => { S.date = dateEl.value; fetchWx(); };
+const waveEl = document.getElementById("wave"); waveEl.value = S.wave; waveEl.oninput = () => { S.wave = +waveEl.value; render(); };
+setBase(S.base); layersUI(); render(); fetchWx();
 </script></body></html>
