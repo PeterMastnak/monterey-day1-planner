@@ -19,7 +19,8 @@
 * { box-sizing:border-box; }
 html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:Inter, system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
 button { font-family:inherit; }
-.app { display:grid; grid-template-columns:1fr 440px; grid-template-rows:56px 1fr; height:100%; }
+.app { display:grid; grid-template-columns:minmax(0,1fr) 440px; grid-template-rows:56px 1fr; height:100%; }
+.app > * { min-width:0; }
 .app.focus { grid-template-columns:1fr 0; } .app.focus aside { display:none; }
 header { grid-column:1 / -1; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid var(--line); background:var(--panel); }
 .brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.01em; font-size:16px; white-space:nowrap; }
@@ -64,7 +65,11 @@ ol.stops li:hover { background:var(--card2); }
 .nm { font-weight:600; font-size:13.5px; } .what { font-size:11.5px; color:var(--muted); } .what b { color:var(--sample); }
 .time { font:600 13px 'JetBrains Mono',monospace; text-align:right; font-variant-numeric:tabular-nums; }
 .time .n { display:block; font:600 10px Inter; color:var(--nightInk); }
-.note { font-size:11.5px; color:var(--muted); line-height:1.55; }
+.note { font-size:11.5px; color:var(--muted); line-height:1.55; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+.note summary { list-style:none; cursor:pointer; padding:10px 12px; display:flex; align-items:center; gap:8px; font:600 12.5px Inter; color:var(--ink); }
+.note summary::-webkit-details-marker { display:none; } .note summary:focus-visible { outline:2px solid var(--route); border-radius:12px; }
+.note .ib { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--muted); display:grid; place-items:center; font:700 11px Georgia, serif; font-style:italic; color:var(--muted); }
+.note[open] summary { border-bottom:1px solid var(--line); } .notebody { padding:10px 12px 12px; }
 .note .warnbox { display:block; background:rgba(250,204,21,.1); color:#facc15; border:1px solid rgba(250,204,21,.25); padding:7px 9px; border-radius:9px; margin-bottom:8px; }
 [data-theme=light] .note .warnbox { color:#854d0e; background:#fef9c3; border-color:#fde68a; }
 /* floating map UI */
@@ -109,8 +114,23 @@ input[type=date] { width:100%; background:var(--card2); color:var(--ink); border
 .leaflet-control-attribution { background:var(--glass) !important; color:var(--muted) !important; } .leaflet-control-attribution a { color:var(--muted) !important; }
 .leaflet-control-scale-line { background:var(--glass); color:var(--ink); border-color:var(--muted); }
 .leaflet-top.leaflet-left { top:auto; bottom:290px; } .leaflet-bottom.leaflet-right { bottom:72px; }
-@media (max-width: 900px) { .app { grid-template-columns:1fr; grid-template-rows:56px 70vh auto; height:auto; } aside { border-left:0; }
-  .legend { display:none; } .mtitle { max-width:calc(100% - 28px); } .layers { display:none; } .brand small, .pill { display:none; } }
+@media (max-width: 900px) {
+  .app { grid-template-columns:minmax(0,1fr); grid-template-rows:auto 72vh auto; height:auto; } html, body { overflow-x:hidden; }
+  header { flex-wrap:wrap; gap:8px; padding:10px 12px; } .brand { font-size:15px; } .brand small { display:none; }
+  .spacer { display:none; } .pill { order:3; flex:1 1 100%; } .pill button { flex:1; } .iconbtn { margin-left:auto; height:32px; padding:0 10px; } #theme { margin-left:auto; } #focus { margin-left:0; }
+  aside { border-left:0; padding:16px 14px 40px; }
+  .legend, .leaflet-control-zoom { display:none; }
+  .mtitle { top:10px; left:10px; right:10px; max-width:none; padding:8px 11px; }
+  .mtitle .t { font-size:13.5px; } .mtitle .s { font-size:11px; line-height:1.45; }
+  .layers { top:auto; right:10px; bottom:122px; min-width:0; padding:8px 10px; font-size:12px; }
+  .scrub { left:10px; right:10px; bottom:10px; padding:8px 12px 10px; grid-template-columns:auto 1fr; grid-template-areas:"play clock" "tl tl"; gap:6px 12px; }
+  .play { grid-area:play; width:32px; height:32px; } .tl { grid-area:tl; height:28px; } .tl svg { height:28px; }
+  .scrub .clock { grid-area:clock; min-width:0; text-align:left; font-size:13px; } .scrub .clock small { font-size:10.5px; line-height:1.35; }
+  .rxlab { font-size:10.5px; } .wxl { font-size:9px; }
+  .leaflet-control-attribution { font-size:8.5px; max-width:60%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .leaflet-bottom.leaflet-right { bottom:auto; top:0; }
+  .kpi .v { font-size:20px; } .seg button { font-size:12.5px; padding:7px 2px; } .seg button small { font-size:9.5px; }
+}
 </style></head>
 <body>
 <div class="app" id="app">
@@ -136,29 +156,29 @@ input[type=date] { width:100%; background:var(--card2); color:var(--ink); border
     <div class="sec"><div class="label">Route</div><div class="seg" id="route"></div></div>
     <div class="sec"><div class="label">Speed through water</div><div class="seg" id="speed"></div></div>
     <div class="sec"><div class="label">Currents + wind drift</div><div class="seg" id="cur"></div></div>
+    <div class="sec"><div class="label">Forecast day <span id="dayhint"></span></div><div class="seg" id="days"></div></div>
     <div class="sec"><div class="sliders">
       <div><div class="label">Launch <b id="vLaunch"></b></div><input class="sl" type="range" id="launch" min="6" max="14" step="0.25"></div>
       <div><div class="label">Sampling at MSB1 <b id="vSample"></b></div><input class="sl" type="range" id="sample" min="0.5" max="4" step="0.25"></div>
       <div><div class="label">Each pass <b id="vPass"></b></div><input class="sl" type="range" id="pass" min="0" max="45" step="5"></div>
-      <div><div class="label">Mission date (for the live forecast)</div><input type="date" id="date"></div>
+      <div><div class="label">Or pick any date <span>3 months back to 7 days ahead</span></div><input type="date" id="date"></div>
       <div><div class="label">Speed loss per metre of waves <b id="vWave"></b></div><input class="sl" type="range" id="wave" min="0" max="20" step="1"></div>
       <div class="wxstatus" id="wxstatus"><i></i><span></span></div>
     </div></div>
     <div class="sec kpis" id="kpis"></div>
     <div class="sec"><div class="label">Back at ramp vs speed <span>click a speed</span></div><div class="chart" id="speedchart"></div></div>
     <div class="sec"><div class="label">Stops in order <span>click to jump</span></div><ol class="stops" id="stops"></ol></div>
-    <div class="note">
+    <details class="note" id="info"><summary><span class="ib">i</span>How the times are calculated</summary><div class="notebody">
       <span class="warnbox"><b>Waves:</b> shown from the forecast but they only slow the vessel if you set "speed loss per metre of waves" (no validated wave model for this vessel; ask the operator). Keep a buffer.</span>
       <b>Live</b> uses the Open-Meteo forecast for the chosen date: Copernicus global surface currents (~8 km, tides included), 10 m wind
       and gusts, and wave height. Each leg is stepped every 300 m: the vessel crabs into the cross-current, and the current plus 2&nbsp;% of the
       wind adds to or subtracts from its speed along the track, at the forecast hour it is there. The coarse current grid misses small nearshore eddies.<br><br>
-      Transit times come from the route planner: straight legs through the waypoints, NOAA WCOFS surface currents plus 2&nbsp;% wind
-      drift from Sep 27 / 29 / 30, lined up with a 10:00 launch ("Slowest" takes the slowest of the three for each leg). Moving the launch
-      time or dwell keeps those leg times, so with currents the result is approximate; with "None" it is exact. Passes stay 200 m off the
+      <b>Saved runs</b> work offline: the route planner's earlier runs with NOAA WCOFS currents + 2&nbsp;% wind from Sep 27, 29 and 30,
+      lined up with a 10:00 launch, taking the slowest of the three for each leg. Passes stay 200 m off the
       receiver, outside the 100 m keep-out; every leg is &ge; 190 m from every receiver and over water &gt; 3 m deep. Battery is a rough
       estimate (3.5 kWh standard pack; energy per km grows with speed&sup2;). Official speeds: 2 kn cruise, 6 kn max; 8 kn is a
       third-party claim. Sunset 18:36, sunrise Tue 07:11 (PDT).
-    </div>
+    </div></details>
   </aside>
 </div>
 <script>
@@ -167,12 +187,13 @@ const Q = new URLSearchParams(location.search);
 const S = { route: Q.get("route") || "nocarmel", kn: +(Q.get("kn") || 2), cur: Q.get("cur") || "worst",
             launch: +(Q.get("launch") || 10), sample: +(Q.get("sample") || 2.5), pass: +(Q.get("pass") ?? 15),
             base: Q.get("base") || "dark", t: +(Q.get("t") || 0),
-            layers: { arrows: true, numbers: true, labels: true, keepout: true, unvisited: true, boat: true, cur: true, wind: true } };
+            layers: { arrows: true, numbers: true, labels: true, keepout: true, unvisited: true, boat: true, cur: false, wind: false } };
+const SMALL = () => window.innerWidth < 900;
 const _d = new Date(); S.date = Q.get("date") || `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
 S.wave = +(Q.get("wave") || 0);
 if (Q.get("theme") === "light") document.documentElement.dataset.theme = "light";
 const ROUTE_UI = { nocarmel: ["Route B", "Marina + Hopkins"], carmel: ["Route A", "B + Carmel"] };
-const CUR_UI = { live: "Live", worst: "Slowest", still: "None", sep27: "Sep 27", sep29: "Sep 29", sep30: "Sep 30" };
+const CUR_UI = { live: ["Live forecast", "Open-Meteo"], still: ["Still water", "no currents"], worst: ["Saved runs", "Sep 27-30, offline"] };
 const SPEED_SUB = { 2: "cruise", 6: "max", 8: "unofficial" };
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
@@ -198,7 +219,8 @@ const when = h => `${isNext(h) ? dayName(h) + " " : ""}${hm(h)}`;
 
 // ---------- map ----------
 const map = L.map("map", { zoomControl: true, zoomSnap: 0.25 });
-map.fitBounds([[36.552, -122.0], [36.71, -121.81]], { paddingTopLeft: [20, 80], paddingBottomRight: [230, 70] });
+map.fitBounds([[36.552, -122.0], [36.71, -121.81]], SMALL() ? { paddingTopLeft: [6, 70], paddingBottomRight: [6, 96] }
+                                                              : { paddingTopLeft: [20, 80], paddingBottomRight: [230, 70] });
 const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
 const BASES = {
   dark: ["Dark", () => [L.tileLayer(esri("Canvas/World_Dark_Gray_Base"), { maxNativeZoom: 16, maxZoom: 18, attribution: "Esri, HERE, Garmin, OpenStreetMap contributors" }),
@@ -215,14 +237,17 @@ const G = { wx: L.layerGroup().addTo(map), route: L.layerGroup().addTo(map), arr
             rx: L.layerGroup().addTo(map), stops: L.layerGroup().addTo(map), boat: L.layerGroup().addTo(map) };
 const tri = (w = 20) => `<svg width="${w}" height="${w * .9}" viewBox="0 0 20 18"><path d="M10 1.5 L18.5 16.5 L1.5 16.5 Z" fill="#facc15" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 
+let lastVisited = new Set();
 function drawReceivers(visited) {
+  lastVisited = visited;
+  const short = SMALL() && map.getZoom() < 12.75;   // phones: just the number until zoomed in
   G.rx.clearLayers(); G.keepout.clearLayers();
   D.receivers.forEach(r => {
     const vis = visited.has(r.num);
     if (!vis && !S.layers.unvisited) return;
     if (S.layers.keepout) L.circle([r.lat, r.lon], { radius: 100, pane: "rx", color: css("--warn"), weight: 1, fillColor: css("--warn"), fillOpacity: .35, interactive: false }).addTo(G.keepout);
     const left = r.num === 27;
-    const lab = S.layers.labels ? `<span class="rxlab ${vis ? "" : "off"}" style="${left ? "right:24px" : "left:22px"}">#${r.num} ${r.name}</span>` : "";
+    const lab = S.layers.labels ? `<span class="rxlab ${vis ? "" : "off"}" style="${left ? "right:24px" : "left:22px"}">#${r.num}${short ? "" : " " + r.name}</span>` : "";
     L.marker([r.lat, r.lon], { pane: "rx", icon: L.divIcon({ className: "", html: `<div style="position:relative">${tri()}${lab}</div>`, iconSize: [20, 18], iconAnchor: [10, 12] }) })
       .bindTooltip(`<b>#${r.num} ${r.name}</b>${r.live ? " &middot; live" : ""}${vis ? "" : " &middot; not on this route"}<br>${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} &middot; ${r.depth} m deep<br>keep-out 100 m`, { direction: "top", offset: [0, -12] })
       .addTo(G.rx);
@@ -289,7 +314,7 @@ function render() {
       .addTo(G.stops);
   });
   document.getElementById("mtitle").innerHTML = `<div class="t">${ROUTE_UI[S.route][0]} &middot; ${S.kn} kn &middot; launch ${hm(S.launch)} &middot; back ${when(end)}</div>
-    <div class="s">${visits.map((s, i) => `<span><b>${i + 1}</b> ${s.name}${s.kind === "station" ? " (sample)" : ""}</span>`).join("<i>&rarr;</i>")}</div>`;
+    <div class="s">${visits.map((s, i) => `<span><b>${i + 1}</b> ${s.name}${s.kind === "station" ? " (sample)" : ""}</span>`).join(" <i>&rarr;</i> ")}</div>`;
 
   const msb = SCH.find(s => s.rx === 21), e = kwh(S.route, S.kn);
   const endTag = isNext(end) ? '<span class="tag night">next day</span>' : isNight(end) ? '<span class="tag night">after dark</span>' : '<span class="tag ok">daylight</span>';
@@ -347,7 +372,7 @@ function updateBoat() {
 }
 
 function speedChart() {
-  const W = 400, H = 175, m = { l: 66, r: 12, t: 16, b: 24 }, sp = D.speeds, curs = ["still", "sep27", "sep29", "sep30"].concat(WX.ok ? ["live"] : []);
+  const W = 400, H = 175, m = { l: 66, r: 12, t: 16, b: 24 }, sp = D.speeds, curs = ["still", "worst"].concat(WX.ok ? ["live"] : []);
   const ends = {}; curs.concat(["worst"]).forEach(c => ends[c] = sp.map(k => { const s = schedule(S.route, k, c); return s[s.length - 1].arr; }));
   const all = Object.values(ends).flat(), y0 = Math.floor(Math.min(...all) - .5), y1 = Math.ceil(Math.max(...all, D.sunset) + .5);
   const X = k => m.l + (k - sp[0]) / (sp[sp.length - 1] - sp[0]) * (W - m.l - m.r), Y = h => m.t + (y1 - h) / (y1 - y0) * (H - m.t - m.b);
@@ -377,7 +402,13 @@ function seg(id, opts, key) {
 function controls() {
   seg("route", Object.entries(ROUTE_UI).map(([k, [a, b]]) => [k, a, b]), "route");
   seg("speed", D.speeds.map(k => [k, `${k} kn`, SPEED_SUB[k] || ""]), "kn");
-  seg("cur", Object.entries(CUR_UI).map(([k, a]) => [k, a]), "cur");
+  seg("cur", Object.entries(CUR_UI).map(([k, [a, b]]) => [k, a, b]), "cur");
+  const ymd = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const dayOpts = [0, 1, 2, 3].map(n => [ymd(n), ["Today", "Tomorrow", "+2 days", "+3 days"][n], new Date(ymd(n) + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })]);
+  const dEl = document.getElementById("days");
+  dEl.innerHTML = dayOpts.map(([v, a, b]) => `<button data-v="${v}" class="${S.date === v ? "on" : ""}">${a}<small>${b}</small></button>`).join("");
+  dEl.querySelectorAll("button").forEach(b => b.onclick = () => { S.date = b.dataset.v; document.getElementById("date").value = S.date; if (S.cur !== "live") S.cur = "live"; fetchWx(); });
+  document.getElementById("dayhint").textContent = S.cur === "live" ? "" : "used by Live forecast";
   document.getElementById("vLaunch").textContent = hm(S.launch);
   document.getElementById("vSample").textContent = `${S.sample} h`;
   document.getElementById("vPass").textContent = `${S.pass} min`;
@@ -407,6 +438,8 @@ function layersUI() {
     `<label><input type="checkbox" data-k="${k}" ${S.layers[k] ? "checked" : ""}>${n}</label>`).join("");
   el.querySelectorAll("input").forEach(c => c.onchange = () => { S.layers[c.dataset.k] = c.checked; render(); });
   document.getElementById("layersH").onclick = () => el.classList.toggle("collapsed");
+  if (SMALL() && !layersUI.done) el.classList.add("collapsed");
+  layersUI.done = true;
 }
 
 // ---------- wiring ----------
@@ -427,7 +460,7 @@ document.getElementById("theme").onclick = () => {
   render();
 };
 document.getElementById("focus").onclick = () => { document.getElementById("app").classList.toggle("focus"); setTimeout(() => { map.invalidateSize(); drawArrows(); }, 60); };
-map.on("zoomend", drawArrows);
+map.on("zoomend", () => { drawArrows(); drawReceivers(lastVisited); });
 // ---------- live forecast (Open-Meteo, no key) ----------
 const WX = { ok: false, status: "Loading live forecast...", cls: "" };
 const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
@@ -515,7 +548,8 @@ function drawWx(t) {
   if (S.layers.cur) draw(WX.cur, "cur", css("--cur"), 40);
   if (S.layers.wind) draw(WX.wind, "wind", css("--wind"), 1.6);
 }
-const dateEl = document.getElementById("date"); dateEl.value = S.date; dateEl.onchange = () => { S.date = dateEl.value; fetchWx(); };
+const dateEl = document.getElementById("date"); dateEl.value = S.date;
+{ const f = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }; dateEl.min = f(-90); dateEl.max = f(7); } dateEl.onchange = () => { S.date = dateEl.value; fetchWx(); };
 const waveEl = document.getElementById("wave"); waveEl.value = S.wave; waveEl.oninput = () => { S.wave = +waveEl.value; render(); };
 setBase(S.base); layersUI(); render(); fetchWx();
 </script></body></html>
