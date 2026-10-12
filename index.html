@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 1 Route Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root, :root[data-theme=dark] { color-scheme:dark;
+  --bg:#070b14; --panel:#0d1322; --card:#131b2e; --card2:#1a2540; --line:#22304a; --ink:#e6edf7; --muted:#8a9bb8; --dim:#5b6b88;
+  --route:#5ea2ff; --route2:#2f6fe0; --sample:#e879f9; --ramp:#4ade80; --warn:#f87171; --ok:#4ade80;
+  --night:rgba(99,102,241,.22); --nightInk:#a5b4fc; --halo:#070b14; --shadow:0 8px 30px rgba(0,0,0,.45); --glass:rgba(13,19,34,.86);
+}
+:root[data-theme=light] { color-scheme:light;
+  --bg:#eef2f7; --panel:#ffffff; --card:#f6f8fb; --card2:#e8eef8; --line:#dfe5ee; --ink:#0f172a; --muted:#5b6b82; --dim:#94a3b8;
+  --route:#1d4ed8; --route2:#1d4ed8; --sample:#c026d3; --ramp:#16a34a; --warn:#dc2626; --ok:#15803d;
+  --night:rgba(30,27,75,.10); --nightInk:#4338ca; --halo:#ffffff; --shadow:0 6px 24px rgba(15,23,42,.14); --glass:rgba(255,255,255,.9);
+}
+* { box-sizing:border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:Inter, system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+button { font-family:inherit; }
+.app { display:grid; grid-template-columns:1fr 440px; grid-template-rows:56px 1fr; height:100%; }
+.app.focus { grid-template-columns:1fr 0; } .app.focus aside { display:none; }
+header { grid-column:1 / -1; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid var(--line); background:var(--panel); }
+.brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.01em; font-size:16px; white-space:nowrap; }
+.brand .logo { width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,var(--route),var(--sample)); }
+.brand small { font-weight:500; color:var(--muted); font-size:13px; margin-left:4px; }
+.spacer { flex:1; }
+.pill { display:flex; gap:2px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:3px; }
+.pill button { border:0; background:transparent; color:var(--muted); font-size:12.5px; font-weight:600; padding:6px 10px; border-radius:7px; cursor:pointer; }
+.pill button.on { background:var(--card2); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line); }
+.iconbtn { border:1px solid var(--line); background:var(--card); color:var(--ink); height:34px; padding:0 12px; border-radius:10px; cursor:pointer; font-size:12.5px; font-weight:600; white-space:nowrap; }
+.iconbtn:hover { background:var(--card2); }
+.mapwrap { position:relative; min-height:0; }
+#map { position:absolute; inset:0; background:var(--bg); }
+aside { overflow:auto; background:var(--panel); border-left:1px solid var(--line); padding:18px 18px 30px; }
+.sec { margin-bottom:18px; }
+.label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); margin:0 0 7px; display:flex; justify-content:space-between; align-items:baseline; }
+.label b { color:var(--ink); font-family:'JetBrains Mono',monospace; letter-spacing:0; text-transform:none; font-size:12px; }
+.label span { text-transform:none; letter-spacing:0; font-weight:500; }
+.seg { display:flex; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:3px; gap:3px; }
+.seg button { flex:1; border:0; background:transparent; color:var(--muted); padding:8px 4px; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; line-height:1.2; }
+.seg button small { display:block; font-size:10.5px; font-weight:500; color:var(--dim); margin-top:1px; }
+.seg button.on { background:var(--card2); color:var(--ink); box-shadow:inset 0 0 0 1px var(--line), 0 1px 2px rgba(0,0,0,.2); }
+.seg button.on small { color:var(--muted); }
+input[type=range].sl { -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:4px; background:var(--line); outline:none; margin:6px 0 2px; }
+input[type=range].sl::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--route); border:3px solid var(--card); box-shadow:0 0 0 1px var(--route); cursor:pointer; }
+.sliders { display:grid; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+.kpi .k { font-size:11px; color:var(--muted); font-weight:500; }
+.kpi .v { font-size:22px; font-weight:800; letter-spacing:-.02em; margin-top:2px; font-variant-numeric:tabular-nums; }
+.kpi .v small { font-size:12px; color:var(--muted); font-weight:500; letter-spacing:0; }
+.tag { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:99px; margin-left:6px; vertical-align:3px; letter-spacing:.01em; }
+.tag.night { background:var(--night); color:var(--nightInk); } .tag.ok { background:rgba(74,222,128,.15); color:var(--ok); } .tag.warn { background:rgba(248,113,113,.15); color:var(--warn); }
+.chart { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 10px 6px; }
+.chart svg { display:block; width:100%; height:auto; }
+.chart text { fill:var(--muted); font:500 10.5px Inter; }
+ol.stops { list-style:none; margin:0; padding:0; }
+ol.stops li { display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:center; padding:7px 8px; border-radius:10px; cursor:pointer; }
+ol.stops li:hover { background:var(--card2); }
+.dot { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font:800 11.5px Inter; color:#fff; background:var(--route2); }
+.dot.sample { background:var(--sample); color:#2a0530; } .dot.ramp { background:var(--ramp); color:#052e12; font-size:9px; }
+.nm { font-weight:600; font-size:13.5px; } .what { font-size:11.5px; color:var(--muted); } .what b { color:var(--sample); }
+.time { font:600 13px 'JetBrains Mono',monospace; text-align:right; font-variant-numeric:tabular-nums; }
+.time .n { display:block; font:600 10px Inter; color:var(--nightInk); }
+.note { font-size:11.5px; color:var(--muted); line-height:1.55; }
+.note .warnbox { display:block; background:rgba(250,204,21,.1); color:#facc15; border:1px solid rgba(250,204,21,.25); padding:7px 9px; border-radius:9px; margin-bottom:8px; }
+[data-theme=light] .note .warnbox { color:#854d0e; background:#fef9c3; border-color:#fde68a; }
+/* floating map UI */
+.float { position:absolute; z-index:800; background:var(--glass); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); }
+.mtitle { top:14px; left:14px; padding:10px 14px; max-width:calc(100% - 260px); }
+.mtitle .t { font-weight:800; font-size:15px; letter-spacing:-.01em; } .mtitle .s { font-size:12px; color:var(--muted); margin-top:3px; line-height:1.55; }
+.mtitle .s span { white-space:nowrap; } .mtitle .s span b { color:var(--ink); font-weight:700; } .mtitle .s i { font-style:normal; color:var(--dim); margin:0 4px; }
+.layers { top:14px; right:14px; padding:10px 12px; font-size:12.5px; min-width:200px; }
+.layers .h { font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; display:flex; justify-content:space-between; cursor:pointer; user-select:none; }
+.layers label { display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer; color:var(--ink); }
+.layers input { accent-color:var(--route2); }
+.layers.collapsed label { display:none; } .layers.collapsed .h { margin:0; }
+.legend { left:14px; bottom:84px; padding:9px 12px; font-size:12px; line-height:1.85; }
+.legend i { display:inline-block; vertical-align:middle; margin-right:8px; }
+.scrub { left:14px; right:14px; bottom:14px; padding:9px 14px; display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; }
+.play { width:36px; height:36px; border-radius:50%; border:0; background:var(--route2); color:#fff; cursor:pointer; font-size:13px; display:grid; place-items:center; }
+.scrub .clock { font:600 14px 'JetBrains Mono',monospace; min-width:190px; text-align:right; }
+.scrub .clock small { display:block; font:500 11px Inter; color:var(--muted); }
+.tl { position:relative; height:34px; }
+.tl svg { display:block; width:100%; height:34px; }
+.tl input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:ew-resize; margin:0; }
+/* map markers */
+.rxlab { position:absolute; top:0; font:600 11.5px Inter; color:var(--ink); white-space:nowrap; text-shadow:0 0 3px var(--halo),0 0 3px var(--halo),0 0 3px var(--halo),0 0 2px var(--halo); pointer-events:none; }
+.rxlab.off { color:var(--muted); font-weight:500; }
+.stopn { width:20px; height:20px; border-radius:50%; background:var(--route2); color:#fff; font:800 10.5px Inter; display:grid; place-items:center; border:2px solid var(--halo); box-shadow:0 1px 4px rgba(0,0,0,.5); transition:transform .15s; }
+.stopn.sample { background:var(--sample); color:#2a0530; width:24px; height:24px; } .stopn.hl { transform:scale(1.55); }
+.arrow { color:var(--route); font-size:12px; line-height:1; text-shadow:0 0 3px var(--halo),0 0 2px var(--halo); }
+.rampm { width:16px; height:16px; border-radius:50%; background:var(--ramp); border:3px solid var(--halo); box-shadow:0 0 0 1.5px var(--ramp); }
+.boat { width:18px; height:18px; border-radius:50%; background:#fff; border:4px solid #f59e0b; box-shadow:0 0 0 6px rgba(245,158,11,.28), 0 2px 8px rgba(0,0,0,.5); }
+.leaflet-container { font-family:Inter, sans-serif; background:var(--bg); }
+.leaflet-tooltip { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow); font:500 12px Inter; padding:7px 10px; }
+.leaflet-tooltip-top:before { border-top-color:var(--line); } .leaflet-tooltip-left:before { border-left-color:var(--line); }
+.leaflet-control-zoom a { background:var(--panel) !important; color:var(--ink) !important; border-color:var(--line) !important; }
+.leaflet-bar { border:1px solid var(--line) !important; box-shadow:var(--shadow) !important; }
+.leaflet-control-attribution { background:var(--glass) !important; color:var(--muted) !important; } .leaflet-control-attribution a { color:var(--muted) !important; }
+.leaflet-control-scale-line { background:var(--glass); color:var(--ink); border-color:var(--muted); }
+.leaflet-top.leaflet-left { top:auto; bottom:290px; } .leaflet-bottom.leaflet-right { bottom:72px; }
+@media (max-width: 900px) { .app { grid-template-columns:1fr; grid-template-rows:56px 70vh auto; height:auto; } aside { border-left:0; }
+  .legend { display:none; } .mtitle { max-width:calc(100% - 28px); } .layers { display:none; } .brand small, .pill { display:none; } }
+</style></head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="brand"><div class="logo"></div>Day 1 Route Planner<small>Mon Oct 12 &middot; Monterey Bay</small></div>
+    <div class="spacer"></div>
+    <div class="pill" id="basemap"></div>
+    <button class="iconbtn" id="theme">&#9681; Theme</button>
+    <button class="iconbtn" id="focus">&#x26F6; Map only</button>
+  </header>
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="float mtitle" id="mtitle"></div>
+    <div class="float layers" id="layers"></div>
+    <div class="float legend" id="legend"></div>
+    <div class="float scrub">
+      <button class="play" id="play" title="Play / pause">&#9654;</button>
+      <div class="tl"><svg id="tlsvg" viewBox="0 0 1000 34" preserveAspectRatio="none"></svg><input type="range" id="tpos" min="0" max="1000" value="0"></div>
+      <div class="clock" id="clock"></div>
+    </div>
+  </div>
+  <aside>
+    <div class="sec"><div class="label">Route</div><div class="seg" id="route"></div></div>
+    <div class="sec"><div class="label">Speed through water</div><div class="seg" id="speed"></div></div>
+    <div class="sec"><div class="label">Currents + wind drift</div><div class="seg" id="cur"></div></div>
+    <div class="sec"><div class="sliders">
+      <div><div class="label">Launch <b id="vLaunch"></b></div><input class="sl" type="range" id="launch" min="6" max="14" step="0.25"></div>
+      <div><div class="label">Sampling at MSB1 <b id="vSample"></b></div><input class="sl" type="range" id="sample" min="0.5" max="4" step="0.25"></div>
+      <div><div class="label">Each pass <b id="vPass"></b></div><input class="sl" type="range" id="pass" min="0" max="45" step="5"></div>
+    </div></div>
+    <div class="sec kpis" id="kpis"></div>
+    <div class="sec"><div class="label">Back at ramp vs speed <span>click a speed</span></div><div class="chart" id="speedchart"></div></div>
+    <div class="sec"><div class="label">Stops in order <span>click to jump</span></div><ol class="stops" id="stops"></ol></div>
+    <div class="note">
+      <span class="warnbox"><b>Not modelled:</b> swell and waves. Keep a buffer.</span>
+      Transit times come from the route planner: straight legs through the waypoints, NOAA WCOFS surface currents plus 2&nbsp;% wind
+      drift from Sep 27 / 29 / 30, lined up with a 10:00 launch ("Slowest" takes the slowest of the three for each leg). Moving the launch
+      time or dwell keeps those leg times, so with currents the result is approximate; with "None" it is exact. Passes stay 200 m off the
+      receiver, outside the 100 m keep-out; every leg is &ge; 190 m from every receiver and over water &gt; 3 m deep. Battery is a rough
+      estimate (3.5 kWh standard pack; energy per km grows with speed&sup2;). Official speeds: 2 kn cruise, 6 kn max; 8 kn is a
+      third-party claim. Sunset 18:36, sunrise Tue 07:11 (PDT).
+    </div>
+  </aside>
+</div>
+<script>
+const D = {"receivers": [{"num": 20, "name": "Salinas River State Beach", "lat": 36.74097, "lon": -121.81816, "depth": 14, "live": true}, {"num": 21, "name": "MSB1", "lat": 36.69996, "lon": -121.81693, "depth": 17, "live": false}, {"num": 22, "name": "Monterey - NPS", "lat": 36.6675, "lon": -121.875, "depth": 65, "live": false}, {"num": 23, "name": "MY3", "lat": 36.65233, "lon": -121.872703, "depth": 62, "live": false}, {"num": 24, "name": "Sand City", "lat": 36.63253, "lon": -121.84621, "depth": 16, "live": false}, {"num": 25, "name": "Del Monte", "lat": 36.60777, "lon": -121.87489, "depth": 15, "live": false}, {"num": 26, "name": "Breakwater", "lat": 36.61243, "lon": -121.89111, "depth": 22, "live": false}, {"num": 27, "name": "Kelp Forest", "lat": 36.62058, "lon": -121.90159, "depth": 8, "live": false}, {"num": 28, "name": "HMS OA1", "lat": 36.62302, "lon": -121.90069, "depth": 22, "live": false}, {"num": 29, "name": "Lovers Pt", "lat": 36.62888, "lon": -121.91447, "depth": 15, "live": false}, {"num": 30, "name": "Bird Rock", "lat": 36.59803, "lon": -121.97011, "depth": 18, "live": false}, {"num": 31, "name": "SWC1", "lat": 36.55888, "lon": -121.94306, "depth": 18, "live": false}], "speeds": [2, 3, 4, 6, 8], "routes": {"carmel": {"title": "Route A: Del Monte, Sand City, Marina, Carmel, Hopkins", "stops": [{"kind": "launch", "rx": null, "name": "Monterey launch ramp", "lat": 36.609108, "lon": -121.893804, "ti": 0, "km": 0.0}, {"kind": "pass", "rx": 25, "name": "Del Monte", "lat": 36.60933, "lon": -121.87601, "ti": 3, "km": 1.66}, {"kind": "pass", "rx": 24, "name": "Sand City", "lat": 36.63343, "lon": -121.84815, "ti": 4, "km": 3.66}, {"kind": "station", "rx": 21, "name": "MSB1", "lat": 36.69996, "lon": -121.81917, "ti": 5, "km": 7.84}, {"kind": "pass", "rx": 30, "name": "Bird Rock", "lat": 36.59919, "lon": -121.97183, "ti": 7, "km": 18.24}, {"kind": "pass", "rx": 31, "name": "SWC1", "lat": 36.55826, "lon": -121.94516, "ti": 10, "km": 7.43}, {"kind": "pass", "rx": 29, "name": "Lovers Pt", "lat": 36.63044, "lon": -121.91335, "ti": 15, "km": 16.41}, {"kind": "pass", "rx": 28, "name": "HMS OA1", "lat": 36.62302, "lon": -121.89845, "ti": 17, "km": 1.67}, {"kind": "pass", "rx": 27, "name": "Kelp Forest", "lat": 36.62058, "lon": -121.89935, "ti": 18, "km": 0.28}, {"kind": "pass", "rx": 26, "name": "Breakwater", "lat": 36.61196, "lon": -121.89327, "ti": 19, "km": 1.1}, {"kind": "recover", "rx": null, "name": "Monterey launch ramp", "lat": 36.609108, "lon": -121.893804, "ti": 21, "km": 0.64}], "track": [[36.609108, -121.893804], [36.6082, -121.8918], [36.61, -121.887], [36.60933, -121.87601], [36.63343, -121.84815], [36.69996, -121.81917], [36.647, -121.938], [36.59919, -121.97183], [36.577, -121.988], [36.56, -121.965], [36.55826, -121.94516], [36.56, -121.965], [36.577, -121.988], [36.59919, -121.97183], [36.647, -121.938], [36.63044, -121.91335], [36.6255, -121.899], [36.62302, -121.89845], [36.62058, -121.89935], [36.61196, -121.89327], [36.6082, -121.8918], [36.609108, -121.893804]], "ret": [false, false, false, false, false, false, false, false, false, false, false, true, true, true, true, false, false, false, false, false, false, false]}, "nocarmel": {"title": "Route B: Del Monte, Sand City, Marina, Hopkins", "stops": [{"kind": "launch", "rx": null, "name": "Monterey launch ramp", "lat": 36.609108, "lon": -121.893804, "ti": 0, "km": 0.0}, {"kind": "pass", "rx": 25, "name": "Del Monte", "lat": 36.60933, "lon": -121.87601, "ti": 3, "km": 1.66}, {"kind": "pass", "rx": 24, "name": "Sand City", "lat": 36.63343, "lon": -121.84815, "ti": 4, "km": 3.66}, {"kind": "station", "rx": 21, "name": "MSB1", "lat": 36.69996, "lon": -121.81917, "ti": 5, "km": 7.84}, {"kind": "pass", "rx": 29, "name": "Lovers Pt", "lat": 36.63044, "lon": -121.91335, "ti": 6, "km": 11.42}, {"kind": "pass", "rx": 28, "name": "HMS OA1", "lat": 36.62302, "lon": -121.89845, "ti": 8, "km": 1.67}, {"kind": "pass", "rx": 27, "name": "Kelp Forest", "lat": 36.62058, "lon": -121.89935, "ti": 9, "km": 0.28}, {"kind": "pass", "rx": 26, "name": "Breakwater", "lat": 36.61196, "lon": -121.89327, "ti": 10, "km": 1.1}, {"kind": "recover", "rx": null, "name": "Monterey launch ramp", "lat": 36.609108, "lon": -121.893804, "ti": 12, "km": 0.64}], "track": [[36.609108, -121.893804], [36.6082, -121.8918], [36.61, -121.887], [36.60933, -121.87601], [36.63343, -121.84815], [36.69996, -121.81917], [36.63044, -121.91335], [36.6255, -121.899], [36.62302, -121.89845], [36.62058, -121.89935], [36.61196, -121.89327], [36.6082, -121.8918], [36.609108, -121.893804]], "ret": [false, false, false, false, false, false, false, false, false, false, false, false, false]}}, "legs": {"carmel|2|still": [0.0, 0.45, 0.99, 2.12, 4.92, 2.01, 4.43, 0.45, 0.08, 0.3, 0.17], "carmel|2|sep27": [0.0, 0.43, 1.02, 2.15, 5.13, 1.77, 4.08, 0.38, 0.08, 0.28, 0.17], "carmel|2|sep29": [0.0, 0.44, 0.87, 1.87, 5.27, 1.8, 4.49, 0.49, 0.08, 0.29, 0.17], "carmel|2|sep30": [0.0, 0.44, 0.95, 2.03, 4.8, 2.13, 4.3, 0.56, 0.08, 0.3, 0.17], "carmel|2|worst": [0.0, 0.44, 1.02, 2.15, 5.27, 2.13, 4.49, 0.56, 0.08, 0.3, 0.17], "carmel|3|still": [0.0, 0.3, 0.66, 1.41, 3.28, 1.34, 2.95, 0.3, 0.05, 0.2, 0.12], "carmel|3|sep27": [0.0, 0.29, 0.67, 1.43, 3.35, 1.23, 3.13, 0.28, 0.05, 0.19, 0.11], "carmel|3|sep29": [0.0, 0.29, 0.61, 1.29, 3.64, 1.26, 3.27, 0.3, 0.05, 0.2, 0.12], "carmel|3|sep30": [0.0, 0.29, 0.64, 1.37, 3.42, 1.4, 3.1, 0.33, 0.05, 0.2, 0.12], "carmel|3|worst": [0.0, 0.29, 0.67, 1.43, 3.64, 1.4, 3.27, 0.33, 0.05, 0.2, 0.12], "carmel|4|still": [0.0, 0.22, 0.49, 1.06, 2.46, 1.0, 2.22, 0.23, 0.04, 0.15, 0.09], "carmel|4|sep27": [0.0, 0.22, 0.5, 1.07, 2.51, 0.97, 2.33, 0.22, 0.04, 0.14, 0.09], "carmel|4|sep29": [0.0, 0.22, 0.47, 0.99, 2.7, 0.96, 2.37, 0.22, 0.04, 0.15, 0.09], "carmel|4|sep30": [0.0, 0.22, 0.48, 1.03, 2.59, 1.04, 2.25, 0.23, 0.04, 0.15, 0.09], "carmel|4|worst": [0.0, 0.22, 0.5, 1.07, 2.7, 1.04, 2.37, 0.23, 0.04, 0.15, 0.09], "carmel|6|still": [0.0, 0.15, 0.33, 0.71, 1.64, 0.67, 1.48, 0.15, 0.03, 0.1, 0.06], "carmel|6|sep27": [0.0, 0.15, 0.33, 0.71, 1.66, 0.67, 1.48, 0.14, 0.03, 0.1, 0.06], "carmel|6|sep29": [0.0, 0.15, 0.32, 0.68, 1.75, 0.65, 1.5, 0.14, 0.03, 0.1, 0.06], "carmel|6|sep30": [0.0, 0.15, 0.33, 0.69, 1.71, 0.68, 1.46, 0.15, 0.03, 0.1, 0.06], "carmel|6|worst": [0.0, 0.15, 0.33, 0.71, 1.75, 0.68, 1.5, 0.15, 0.03, 0.1, 0.06], "carmel|8|still": [0.0, 0.11, 0.25, 0.53, 1.23, 0.5, 1.11, 0.11, 0.02, 0.07, 0.04], "carmel|8|sep27": [0.0, 0.11, 0.25, 0.53, 1.24, 0.5, 1.1, 0.11, 0.02, 0.07, 0.04], "carmel|8|sep29": [0.0, 0.11, 0.24, 0.51, 1.29, 0.49, 1.11, 0.11, 0.02, 0.07, 0.04], "carmel|8|sep30": [0.0, 0.11, 0.24, 0.52, 1.27, 0.51, 1.09, 0.11, 0.02, 0.07, 0.04], "carmel|8|worst": [0.0, 0.11, 0.25, 0.53, 1.29, 0.51, 1.11, 0.11, 0.02, 0.07, 0.04], "nocarmel|2|still": [0.0, 0.45, 0.99, 2.12, 3.08, 0.45, 0.08, 0.3, 0.17], "nocarmel|2|sep27": [0.0, 0.43, 1.02, 2.15, 3.37, 0.41, 0.08, 0.28, 0.17], "nocarmel|2|sep29": [0.0, 0.44, 0.87, 1.87, 3.56, 0.39, 0.08, 0.29, 0.18], "nocarmel|2|sep30": [0.0, 0.44, 0.95, 2.03, 3.07, 0.43, 0.08, 0.29, 0.17], "nocarmel|2|worst": [0.0, 0.44, 1.02, 2.15, 3.56, 0.43, 0.08, 0.29, 0.18], "nocarmel|3|still": [0.0, 0.3, 0.66, 1.41, 2.05, 0.3, 0.05, 0.2, 0.12], "nocarmel|3|sep27": [0.0, 0.29, 0.67, 1.43, 2.14, 0.27, 0.05, 0.19, 0.11], "nocarmel|3|sep29": [0.0, 0.29, 0.61, 1.29, 2.36, 0.25, 0.05, 0.19, 0.12], "nocarmel|3|sep30": [0.0, 0.29, 0.64, 1.37, 2.15, 0.28, 0.05, 0.2, 0.12], "nocarmel|3|worst": [0.0, 0.29, 0.67, 1.43, 2.36, 0.28, 0.05, 0.2, 0.12], "nocarmel|4|still": [0.0, 0.22, 0.49, 1.06, 1.54, 0.23, 0.04, 0.15, 0.09], "nocarmel|4|sep27": [0.0, 0.22, 0.5, 1.07, 1.57, 0.21, 0.04, 0.14, 0.09], "nocarmel|4|sep29": [0.0, 0.22, 0.47, 0.99, 1.72, 0.2, 0.04, 0.15, 0.09], "nocarmel|4|sep30": [0.0, 0.22, 0.48, 1.03, 1.62, 0.21, 0.04, 0.15, 0.09], "nocarmel|4|worst": [0.0, 0.22, 0.5, 1.07, 1.72, 0.21, 0.04, 0.15, 0.09], "nocarmel|6|still": [0.0, 0.15, 0.33, 0.71, 1.03, 0.15, 0.03, 0.1, 0.06], "nocarmel|6|sep27": [0.0, 0.15, 0.33, 0.71, 1.03, 0.14, 0.03, 0.1, 0.06], "nocarmel|6|sep29": [0.0, 0.15, 0.32, 0.68, 1.1, 0.14, 0.03, 0.1, 0.06], "nocarmel|6|sep30": [0.0, 0.15, 0.33, 0.69, 1.07, 0.14, 0.03, 0.1, 0.06], "nocarmel|6|worst": [0.0, 0.15, 0.33, 0.71, 1.1, 0.14, 0.03, 0.1, 0.06], "nocarmel|8|still": [0.0, 0.11, 0.25, 0.53, 0.77, 0.11, 0.02, 0.07, 0.04], "nocarmel|8|sep27": [0.0, 0.11, 0.25, 0.53, 0.77, 0.11, 0.02, 0.07, 0.04], "nocarmel|8|sep29": [0.0, 0.11, 0.24, 0.51, 0.81, 0.11, 0.02, 0.07, 0.04], "nocarmel|8|sep30": [0.0, 0.11, 0.24, 0.52, 0.79, 0.11, 0.02, 0.07, 0.04], "nocarmel|8|worst": [0.0, 0.11, 0.25, 0.53, 0.81, 0.11, 0.02, 0.07, 0.04]}, "whPerKm2kn": 18.898488120950322, "sunset": 18.6, "sunrise": 31.183333333333334};
+const Q = new URLSearchParams(location.search);
+const S = { route: Q.get("route") || "nocarmel", kn: +(Q.get("kn") || 2), cur: Q.get("cur") || "worst",
+            launch: +(Q.get("launch") || 10), sample: +(Q.get("sample") || 2.5), pass: +(Q.get("pass") ?? 15),
+            base: Q.get("base") || "dark", t: +(Q.get("t") || 0),
+            layers: { arrows: true, numbers: true, labels: true, keepout: true, unvisited: true, boat: true } };
+if (Q.get("theme") === "light") document.documentElement.dataset.theme = "light";
+const ROUTE_UI = { nocarmel: ["Route B", "Marina + Hopkins"], carmel: ["Route A", "B + Carmel"] };
+const CUR_UI = { worst: "Slowest", still: "None", sep27: "Sep 27", sep29: "Sep 29", sep30: "Sep 30" };
+const SPEED_SUB = { 2: "cruise", 6: "max", 8: "unofficial" };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- schedule, in hours from Mon 00:00 ----------
+function schedule(route, kn, cur) {
+  const R = D.routes[route], legs = D.legs[`${route}|${kn}|${cur}`];
+  let t = S.launch; const out = [];
+  R.stops.forEach((s, i) => {
+    if (i === 0) { out.push({ ...s, arr: null, dep: t, leg: 0, dwell: 0 }); return; }
+    t += legs[i]; const arr = t;
+    const dwell = s.kind === "station" ? S.sample : s.kind === "pass" ? S.pass / 60 : 0;
+    t += dwell; out.push({ ...s, arr, dep: t, dwell, leg: legs[i] });
+  });
+  return out;
+}
+const hm = h => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+const isNext = h => h >= 24;
+const isNight = h => (h >= D.sunset && h < D.sunrise) || h < D.sunrise - 24;
+const kmOf = route => D.routes[route].stops.reduce((a, s) => a + s.km, 0);
+const kwh = (route, kn) => kmOf(route) * D.whPerKm2kn * (kn / 2) ** 2 / 1000;
+const when = h => `${isNext(h) ? "Tue " : ""}${hm(h)}`;
+
+// ---------- map ----------
+const map = L.map("map", { zoomControl: true, zoomSnap: 0.25 });
+map.fitBounds([[36.552, -122.0], [36.71, -121.81]], { paddingTopLeft: [20, 80], paddingBottomRight: [230, 70] });
+const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
+const BASES = {
+  dark: ["Dark", () => [L.tileLayer(esri("Canvas/World_Dark_Gray_Base"), { maxNativeZoom: 16, maxZoom: 18, attribution: "Esri, HERE, Garmin, OpenStreetMap contributors" }),
+                        L.tileLayer(esri("Canvas/World_Dark_Gray_Reference"), { maxNativeZoom: 16, maxZoom: 18 })]],
+  ocean: ["Ocean", () => [L.tileLayer(esri("Ocean/World_Ocean_Base"), { maxNativeZoom: 13, maxZoom: 18, attribution: "Esri, Garmin, GEBCO, NOAA NGDC" }),
+                          L.tileLayer(esri("Ocean/World_Ocean_Reference"), { maxNativeZoom: 13, maxZoom: 18 })]],
+  sat: ["Satellite", () => [L.tileLayer(esri("World_Imagery"), { maxZoom: 18, attribution: "Esri, Maxar, Earthstar Geographics" })]],
+};
+let baseLayers = [];
+function setBase(k) { baseLayers.forEach(l => map.removeLayer(l)); baseLayers = BASES[k][1](); baseLayers.forEach(l => l.addTo(map).bringToBack()); S.base = k; pills(); }
+["route", "arrows", "rx", "stops", "boat"].forEach((p, i) => map.createPane(p).style.zIndex = 410 + i * 60);
+const G = { route: L.layerGroup().addTo(map), arrows: L.layerGroup().addTo(map), keepout: L.layerGroup().addTo(map),
+            rx: L.layerGroup().addTo(map), stops: L.layerGroup().addTo(map), boat: L.layerGroup().addTo(map) };
+const tri = (w = 20) => `<svg width="${w}" height="${w * .9}" viewBox="0 0 20 18"><path d="M10 1.5 L18.5 16.5 L1.5 16.5 Z" fill="#facc15" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+
+function drawReceivers(visited) {
+  G.rx.clearLayers(); G.keepout.clearLayers();
+  D.receivers.forEach(r => {
+    const vis = visited.has(r.num);
+    if (!vis && !S.layers.unvisited) return;
+    if (S.layers.keepout) L.circle([r.lat, r.lon], { radius: 100, pane: "rx", color: css("--warn"), weight: 1, fillColor: css("--warn"), fillOpacity: .35, interactive: false }).addTo(G.keepout);
+    const left = r.num === 27;
+    const lab = S.layers.labels ? `<span class="rxlab ${vis ? "" : "off"}" style="${left ? "right:24px" : "left:22px"}">#${r.num} ${r.name}</span>` : "";
+    L.marker([r.lat, r.lon], { pane: "rx", icon: L.divIcon({ className: "", html: `<div style="position:relative">${tri()}${lab}</div>`, iconSize: [20, 18], iconAnchor: [10, 12] }) })
+      .bindTooltip(`<b>#${r.num} ${r.name}</b>${r.live ? " &middot; live" : ""}${vis ? "" : " &middot; not on this route"}<br>${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} &middot; ${r.depth} m deep<br>keep-out 100 m`, { direction: "top", offset: [0, -12] })
+      .addTo(G.rx);
+  });
+}
+const toRad = d => d * Math.PI / 180;
+function bearing(a, b) {   // Mercator is conformal, so the compass bearing is also the on-screen angle
+  const y = Math.sin(toRad(b[1] - a[1])) * Math.cos(toRad(b[0]));
+  const x = Math.cos(toRad(a[0])) * Math.sin(toRad(b[0])) - Math.sin(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.cos(toRad(b[1] - a[1]));
+  return Math.atan2(y, x) * 180 / Math.PI;
+}
+function drawArrows() {
+  G.arrows.clearLayers(); if (!S.layers.arrows) return;
+  const R = D.routes[S.route], tr = R.track, gap = 105; let carry = gap / 2;
+  for (let i = 0; i < tr.length - 1; i++) {
+    const a = map.latLngToLayerPoint(tr[i]), b = map.latLngToLayerPoint(tr[i + 1]), len = a.distanceTo(b);
+    if (len < 1) continue;
+    const ang = bearing(tr[i], tr[i + 1]), side = R.ret[i + 1] ? 7 : 0, nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len;
+    for (let d = carry; d < len; d += gap) {
+      const p = L.point(a.x + (b.x - a.x) * d / len + nx * side, a.y + (b.y - a.y) * d / len + ny * side);
+      L.marker(map.layerPointToLatLng(p), { pane: "arrows", interactive: false, icon: L.divIcon({ className: "", html: `<div class="arrow" style="transform:rotate(${ang}deg)">&#9650;</div>`, iconSize: [12, 12], iconAnchor: [6, 6] }) }).addTo(G.arrows);
+      carry = d + gap - len;
+    }
+    if (carry >= len) carry -= len;
+  }
+}
+function trackCum(tr) { const c = [0]; for (let i = 1; i < tr.length; i++) c.push(c[i - 1] + map.distance(tr[i - 1], tr[i])); return c; }
+let SCH = [], CUM = [], stopMk = {};
+
+function posAt(t) {
+  const tr = D.routes[S.route].track;
+  if (t <= SCH[0].dep) return { ll: tr[0], what: "at the ramp" };
+  for (let i = 1; i < SCH.length; i++) {
+    const s = SCH[i], p = SCH[i - 1];
+    if (t < s.arr) {
+      const f = (t - p.dep) / (s.arr - p.dep), d = CUM[p.ti] + f * (CUM[s.ti] - CUM[p.ti]);
+      let k = p.ti; while (k < s.ti - 1 && CUM[k + 1] < d) k++;
+      const g = (d - CUM[k]) / Math.max(1e-9, CUM[k + 1] - CUM[k]);
+      return { ll: [tr[k][0] + g * (tr[k + 1][0] - tr[k][0]), tr[k][1] + g * (tr[k + 1][1] - tr[k][1])],
+               what: `under way to ${s.kind === "recover" ? "the ramp" : "#" + s.rx + " " + s.name}` };
+    }
+    if (t <= s.dep) return { ll: tr[s.ti], what: s.kind === "station" ? `SAMPLING at #${s.rx} ${s.name}` : s.kind === "pass" ? `passing #${s.rx} ${s.name}` : "back at the ramp" };
+  }
+  return { ll: tr[tr.length - 1], what: "back at the ramp" };
+}
+
+// ---------- render ----------
+function render() {
+  const R = D.routes[S.route];
+  SCH = schedule(S.route, S.kn, S.cur); CUM = trackCum(R.track);
+  const visits = SCH.filter(s => s.kind === "pass" || s.kind === "station"), end = SCH[SCH.length - 1].arr;
+  drawReceivers(new Set(visits.map(s => s.rx)));
+  G.route.clearLayers();
+  L.polyline(R.track, { pane: "route", color: css("--halo"), weight: 9, opacity: .8, lineJoin: "round", interactive: false }).addTo(G.route);
+  L.polyline(R.track, { pane: "route", color: css("--route"), weight: 4, lineJoin: "round", interactive: false }).addTo(G.route);
+  drawArrows();
+  G.stops.clearLayers(); stopMk = {};
+  L.marker(R.track[0], { pane: "stops", icon: L.divIcon({ className: "", html: '<div class="rampm"></div>', iconSize: [16, 16] }) })
+    .bindTooltip(`<b>Launch + recovery ramp</b><br>36.609108, -121.893804`, { direction: "left" }).addTo(G.stops);
+  if (S.layers.numbers) visits.forEach((s, i) => {
+    const sm = s.kind === "station";
+    stopMk[i] = L.marker([s.lat, s.lon], { pane: "stops", icon: L.divIcon({ className: "", html: `<div class="stopn ${sm ? "sample" : ""}" id="mk${i}">${i + 1}</div>`, iconSize: sm ? [24, 24] : [20, 20] }) })
+      .bindTooltip(`<b>${i + 1}. #${s.rx} ${s.name}</b><br>${sm ? `SAMPLE ${S.sample} h` : `${S.pass} min pass`} &middot; arrive ${when(s.arr)}<br>${s.lat.toFixed(5)}, ${s.lon.toFixed(5)} (200 m off)`, { direction: "top", offset: [0, -12] })
+      .addTo(G.stops);
+  });
+  document.getElementById("mtitle").innerHTML = `<div class="t">${ROUTE_UI[S.route][0]} &middot; ${S.kn} kn &middot; launch ${hm(S.launch)} &middot; back ${when(end)}</div>
+    <div class="s">${visits.map((s, i) => `<span><b>${i + 1}</b> ${s.name}${s.kind === "station" ? " (sample)" : ""}</span>`).join("<i>&rarr;</i>")}</div>`;
+
+  const msb = SCH.find(s => s.rx === 21), e = kwh(S.route, S.kn);
+  const endTag = isNext(end) ? '<span class="tag night">next day</span>' : isNight(end) ? '<span class="tag night">after dark</span>' : '<span class="tag ok">daylight</span>';
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><div class="k">At MSB1</div><div class="v">${hm(msb.arr)} <small>+${(msb.arr - S.launch).toFixed(1)} h</small></div></div>
+    <div class="kpi"><div class="k">Sampling ends</div><div class="v">${hm(msb.dep)}</div></div>
+    <div class="kpi"><div class="k">Back at ramp</div><div class="v">${hm(end)}${endTag}</div></div>
+    <div class="kpi"><div class="k">Total</div><div class="v">${(end - S.launch).toFixed(1)} h <small>${kmOf(S.route).toFixed(1)} km</small></div></div>
+    <div class="kpi" style="grid-column:span 2"><div class="k">Battery, rough</div><div class="v">${e.toFixed(1)} kWh ${e > 3.5 ? '<span class="tag warn">over standard 3.5 kWh</span>' : '<span class="tag ok">within 3.5 kWh</span>'}</div></div>`;
+
+  const flag = h => isNext(h) ? '<span class="n">next day</span>' : isNight(h) ? '<span class="n">dark</span>' : "";
+  const li = [`<li data-t="${S.launch}"><div class="dot ramp">&#9679;</div><div><div class="nm">Launch ramp</div><div class="what">in the water</div></div><div class="time">${hm(S.launch)}</div></li>`];
+  visits.forEach((s, i) => { const sm = s.kind === "station";
+    li.push(`<li data-i="${i}" data-t="${s.arr}"><div class="dot ${sm ? "sample" : ""}">${i + 1}</div><div><div class="nm">#${s.rx} ${s.name}</div>
+      <div class="what">${sm ? `<b>SAMPLE ${S.sample} h</b> &middot; until ${hm(s.dep)}` : `${S.pass} min pass`} &middot; ${s.leg.toFixed(1)} h to get here</div></div>
+      <div class="time">${hm(s.arr)}${flag(s.arr)}</div></li>`); });
+  li.push(`<li data-t="${end}"><div class="dot ramp">&#9679;</div><div><div class="nm">Back at ramp</div><div class="what">recover &middot; ${SCH[SCH.length - 1].leg.toFixed(1)} h to get here</div></div><div class="time">${hm(end)}${flag(end)}</div></li>`);
+  const ol = document.getElementById("stops"); ol.innerHTML = li.join("");
+  ol.querySelectorAll("li").forEach(el => {
+    const i = el.dataset.i;
+    el.onclick = () => { S.t = (+el.dataset.t - S.launch) / (end - S.launch); updateBoat(); };
+    if (i === undefined) return;
+    el.onmouseenter = () => { document.getElementById("mk" + i)?.classList.add("hl"); stopMk[i]?.openTooltip(); };
+    el.onmouseleave = () => { document.getElementById("mk" + i)?.classList.remove("hl"); stopMk[i]?.closeTooltip(); };
+  });
+  timeline(end); speedChart(); controls(); legend(); updateBoat();
+}
+
+function timeline(end) {
+  const t0 = S.launch, span = end - t0, X = h => Math.max(0, Math.min(1000, (h - t0) / span * 1000));
+  let g = "";
+  [[D.sunset, D.sunrise], [D.sunset + 24, D.sunrise + 24]].forEach(([a, b]) => { const x0 = X(a), x1 = X(b);
+    if (x1 > x0) g += `<rect x="${x0}" y="0" width="${x1 - x0}" height="34" fill="${css("--night")}"/>`; });
+  g += `<rect x="0" y="15" width="1000" height="5" fill="${css("--line")}"/>`;
+  SCH.forEach((s, i) => { if (i === 0) return; const p = SCH[i - 1];
+    g += `<rect x="${X(p.dep)}" y="15" width="${Math.max(0, X(s.arr) - X(p.dep))}" height="5" fill="${css("--route2")}"/>`;
+    if (s.dwell > 0) { const sm = s.kind === "station";
+      g += `<rect x="${X(s.arr)}" y="${sm ? 8 : 11}" width="${Math.max(4, X(s.dep) - X(s.arr))}" height="${sm ? 19 : 13}" rx="2" fill="${sm ? css("--sample") : css("--ink")}" opacity="${sm ? 1 : .8}"/>`; } });
+  g += `<line id="cursor" x1="0" x2="0" y1="0" y2="34" stroke="#f59e0b" stroke-width="4"/>`;
+  document.getElementById("tlsvg").innerHTML = g;
+}
+
+function updateBoat() {
+  const end = SCH[SCH.length - 1].arr, t = S.launch + S.t * (end - S.launch), p = posAt(t);
+  G.boat.clearLayers();
+  if (S.layers.boat) L.marker(p.ll, { pane: "boat", interactive: false, icon: L.divIcon({ className: "", html: '<div class="boat"></div>', iconSize: [18, 18] }) }).addTo(G.boat);
+  const c = document.getElementById("cursor"); c.setAttribute("x1", S.t * 1000); c.setAttribute("x2", S.t * 1000);
+  document.getElementById("tpos").value = Math.round(S.t * 1000);
+  document.getElementById("clock").innerHTML = `${isNext(t) ? "Tue" : "Mon"} ${hm(t)}${isNight(t) ? " &#9790;" : " &#9788;"}<small>${p.what}</small>`;
+}
+
+function speedChart() {
+  const W = 400, H = 175, m = { l: 66, r: 12, t: 16, b: 24 }, sp = D.speeds, curs = ["still", "sep27", "sep29", "sep30"];
+  const ends = {}; curs.concat(["worst"]).forEach(c => ends[c] = sp.map(k => { const s = schedule(S.route, k, c); return s[s.length - 1].arr; }));
+  const all = Object.values(ends).flat(), y0 = Math.floor(Math.min(...all) - .5), y1 = Math.ceil(Math.max(...all, D.sunset) + .5);
+  const X = k => m.l + (k - sp[0]) / (sp[sp.length - 1] - sp[0]) * (W - m.l - m.r), Y = h => m.t + (y1 - h) / (y1 - y0) * (H - m.t - m.b);
+  const ny0 = Math.max(y0, D.sunset), ny1 = Math.min(y1, D.sunrise);
+  let g = ny1 > ny0 ? `<rect x="${m.l}" y="${Y(ny1)}" width="${W - m.l - m.r}" height="${Y(ny0) - Y(ny1)}" fill="${css("--night")}"/>` : "";
+  const step = (y1 - y0) > 14 ? 4 : 2;
+  for (let h = Math.ceil(y0 / step) * step; h <= y1; h += step)
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(h)}" y2="${Y(h)}" stroke="${css("--line")}"/><text x="${m.l - 6}" y="${Y(h) + 3.5}" text-anchor="end">${isNext(h) ? "Tue " : ""}${hm(h)}</text>`;
+  if (D.sunset > y0 && D.sunset < y1) g += `<text x="${W - m.r - 4}" y="${Y(D.sunset) - 5}" text-anchor="end" style="fill:${css("--nightInk")};font-weight:600">sunset ${hm(D.sunset)}</text>`;
+  curs.forEach(c => g += `<polyline points="${sp.map((k, i) => `${X(k)},${Y(ends[c][i])}`).join(" ")}" fill="none" stroke="${css("--dim")}" stroke-width="1" opacity=".6"/>`);
+  g += `<polyline points="${sp.map((k, i) => `${X(k)},${Y(ends[S.cur][i])}`).join(" ")}" fill="none" stroke="${css("--route")}" stroke-width="2.5"/>`;
+  sp.forEach((k, i) => { const on = k === S.kn, y = Y(ends[S.cur][i]), last = i === sp.length - 1;
+    g += `<text x="${X(k)}" y="${H - 6}" text-anchor="middle" style="${on ? `fill:${css("--ink")};font-weight:700` : ""}">${k} kn</text>`;
+    g += `<g style="cursor:pointer" data-kn="${k}"><rect x="${X(k) - 18}" y="${m.t}" width="36" height="${H - m.t - m.b}" fill="transparent"/>
+          <circle cx="${X(k)}" cy="${y}" r="${on ? 6 : 4}" fill="${on ? css("--route") : css("--card")}" stroke="${css("--route")}" stroke-width="2"/></g>`;
+    if (on) g += `<text x="${X(k) + (last ? -10 : 10)}" y="${y - 9}" text-anchor="${last ? "end" : "start"}" style="fill:${css("--ink")};font:700 11.5px 'JetBrains Mono'">${when(ends[S.cur][i])}</text>`; });
+  const el = document.getElementById("speedchart");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+  el.querySelectorAll("[data-kn]").forEach(n => n.onclick = () => { S.kn = +n.dataset.kn; render(); });
+}
+
+function seg(id, opts, key) {
+  const el = document.getElementById(id);
+  el.innerHTML = opts.map(([v, a, b]) => `<button data-v="${v}" class="${String(S[key]) === String(v) ? "on" : ""}">${a}${b !== undefined ? `<small>${b || "&nbsp;"}</small>` : ""}</button>`).join("");
+  el.querySelectorAll("button").forEach(b => b.onclick = () => { S[key] = key === "kn" ? +b.dataset.v : b.dataset.v; render(); });
+}
+function controls() {
+  seg("route", Object.entries(ROUTE_UI).map(([k, [a, b]]) => [k, a, b]), "route");
+  seg("speed", D.speeds.map(k => [k, `${k} kn`, SPEED_SUB[k] || ""]), "kn");
+  seg("cur", Object.entries(CUR_UI).map(([k, a]) => [k, a]), "cur");
+  document.getElementById("vLaunch").textContent = hm(S.launch);
+  document.getElementById("vSample").textContent = `${S.sample} h`;
+  document.getElementById("vPass").textContent = `${S.pass} min`;
+}
+function pills() {
+  const el = document.getElementById("basemap");
+  el.innerHTML = Object.entries(BASES).map(([k, [n]]) => `<button class="${k === S.base ? "on" : ""}" data-k="${k}">${n}</button>`).join("");
+  el.querySelectorAll("button").forEach(b => b.onclick = () => setBase(b.dataset.k));
+}
+function legend() {
+  const sm = "display:inline-grid;width:16px;height:16px;font-size:8.5px;border-width:1.5px";
+  document.getElementById("legend").innerHTML = `
+    <div><i style="width:22px;height:4px;background:${css("--route")};border-radius:2px"></i>route &middot; arrows show direction</div>
+    <div><i class="stopn" style="${sm}">1</i>stop, in order</div>
+    <div><i class="stopn sample" style="${sm}">3</i>eDNA sampling (MSB1)</div>
+    <div><i>${tri(14)}</i>receiver &middot; red = 100 m keep-out</div>
+    <div><i class="rampm" style="width:12px;height:12px;border-width:2px"></i>launch + recovery ramp</div>
+    <div><i class="boat" style="width:12px;height:12px;border-width:3px;box-shadow:none"></i>vessel at the timeline time</div>`;
+}
+const LAYER_UI = { arrows: "Direction arrows", numbers: "Stop numbers", labels: "Receiver labels", keepout: "100 m keep-out circles",
+                   unvisited: "Receivers not on route", boat: "Vessel position" };
+function layersUI() {
+  const el = document.getElementById("layers");
+  el.innerHTML = `<div class="h" id="layersH">Layers <span>&#9662;</span></div>` + Object.entries(LAYER_UI).map(([k, n]) =>
+    `<label><input type="checkbox" data-k="${k}" ${S.layers[k] ? "checked" : ""}>${n}</label>`).join("");
+  el.querySelectorAll("input").forEach(c => c.onchange = () => { S.layers[c.dataset.k] = c.checked; render(); });
+  document.getElementById("layersH").onclick = () => el.classList.toggle("collapsed");
+}
+
+// ---------- wiring ----------
+["launch", "sample", "pass"].forEach(k => { const el = document.getElementById(k); el.value = S[k]; el.oninput = () => { S[k] = +el.value; render(); }; });
+document.getElementById("tpos").oninput = e => { S.t = +e.target.value / 1000; updateBoat(); };
+let timer = null;
+const playBtn = document.getElementById("play");
+playBtn.onclick = () => {
+  if (timer) { clearInterval(timer); timer = null; playBtn.innerHTML = "&#9654;"; return; }
+  if (S.t >= 1) S.t = 0;
+  playBtn.innerHTML = "&#10074;&#10074;";
+  timer = setInterval(() => { S.t = Math.min(1, S.t + 0.002); updateBoat();
+    if (S.t >= 1) { clearInterval(timer); timer = null; playBtn.innerHTML = "&#9654;"; } }, 30);
+};
+document.getElementById("theme").onclick = () => {
+  const h = document.documentElement; h.dataset.theme = h.dataset.theme === "dark" ? "light" : "dark";
+  if (S.base === "dark" && h.dataset.theme === "light") setBase("ocean"); else if (S.base === "ocean" && h.dataset.theme === "dark") setBase("dark");
+  render();
+};
+document.getElementById("focus").onclick = () => { document.getElementById("app").classList.toggle("focus"); setTimeout(() => { map.invalidateSize(); drawArrows(); }, 60); };
+map.on("zoomend", drawArrows);
+setBase(S.base); layersUI(); render();
+</script></body></html>
