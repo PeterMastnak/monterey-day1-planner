@@ -175,9 +175,17 @@ input[type=date] { width:100%; background:var(--card2); color:var(--ink); border
       wind adds to or subtracts from its speed along the track, at the forecast hour it is there. The coarse current grid misses small nearshore eddies.<br><br>
       <b>Saved runs</b> work offline: the route planner's earlier runs with NOAA WCOFS currents + 2&nbsp;% wind from Sep 27, 29 and 30,
       lined up with a 10:00 launch, taking the slowest of the three for each leg. Passes stay 200 m off the
-      receiver, outside the 100 m keep-out; every leg is &ge; 190 m from every receiver and over water &gt; 3 m deep. Battery is a rough
-      estimate (3.5 kWh standard pack; energy per km grows with speed&sup2;). Official speeds: 2 kn cruise, 6 kn max; 8 kn is a
-      third-party claim. Sunset 18:36, sunrise Tue 07:11 (PDT).
+      receiver, outside the 100 m keep-out; every leg is &ge; 190 m from every receiver and over water &gt; 3 m deep. Official speeds: 2 kn cruise, 6 kn max; 8 kn is a third-party claim.<br><br>
+      <b>Battery and power: where the numbers come from.</b> Battery: 3.5 kWh lithium-ion standard, extra packs in 3.5 kWh steps up to
+      17.5 kWh (ask which pack the rented vessel has). Range: 100 nm at 2 kn on the standard pack without solar = 35 Wh per nm, about 70 W
+      under way. Other speeds are not published: we scale energy per distance with speed&sup2; (power with speed&sup3;), which gives about
+      1.9 kW at 6 kn, in line with the 3 HP (2.2 kW) motor and the 6 kn maximum. Implied range on 3.5 kWh without solar: 3 kn &asymp; 44 nm,
+      4 kn &asymp; 25 nm, 6 kn &asymp; 11 nm. Solar: 270 W panel rating, not included here. The eDNA option (McLane RoCSI) draws about
+      5&ndash;8 W while sampling (12 V, 0.4&ndash;0.7 A), which is small next to propulsion. Sources:
+      <a href="https://www.openoceanrobotics.com/uncrewed-surface-vehicles" target="_blank" rel="noopener">Open Ocean Robotics</a>,
+      <a href="https://www.openoceanrobotics.com/uncrewed-surface-vehicles/dataxplorer-enviro" target="_blank" rel="noopener">DataXplorer Enviro</a>,
+      <a href="https://bluezonegroup.com.au/wp-content/uploads/2025/10/McLane-RoCSI-Datasheet.pdf" target="_blank" rel="noopener">McLane RoCSI datasheet</a>
+      (checked Oct 2026; no full DataXplorer datasheet is published online). Sunset 18:36, sunrise Tue 07:11 (PDT).
     </div></details>
   </aside>
 </div>
