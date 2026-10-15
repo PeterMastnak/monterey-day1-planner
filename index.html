@@ -176,11 +176,11 @@ input[type=date] { width:100%; background:var(--card2); color:var(--ink); border
       <b>Saved runs</b> work offline: the route planner's earlier runs with NOAA WCOFS currents + 2&nbsp;% wind from Sep 27, 29 and 30,
       lined up with a 10:00 launch, taking the slowest of the three for each leg. Passes stay 200 m off the
       receiver, outside the 100 m keep-out; every leg is &ge; 190 m from every receiver and over water &gt; 3 m deep. Official speeds: 2 kn cruise, 6 kn max; 8 kn is a third-party claim.<br><br>
-      <b>Battery and power: where the numbers come from.</b> Battery: 3.5 kWh lithium-ion standard, extra packs in 3.5 kWh steps up to
-      17.5 kWh (ask which pack the rented vessel has). Range: 100 nm at 2 kn on the standard pack without solar = 35 Wh per nm, about 70 W
+      <b>Battery and power: where the numbers come from.</b> Battery: our vessel has the maximum configuration, 17.5 kWh (the standard
+      3.5 kWh pack + 4 add-on packs of 3.5 kWh; confirmed by the team, Oct 2026). Range: 100 nm at 2 kn on the standard pack without solar = 35 Wh per nm, about 70 W
       under way. Other speeds are not published: we scale energy per distance with speed&sup2; (power with speed&sup3;), which gives about
-      1.9 kW at 6 kn, in line with the 3 HP (2.2 kW) motor and the 6 kn maximum. Implied range on 3.5 kWh without solar: 3 kn &asymp; 44 nm,
-      4 kn &asymp; 25 nm, 6 kn &asymp; 11 nm. Solar: 270 W panel rating, not included here. The eDNA option (McLane RoCSI) draws about
+      1.9 kW at 6 kn, in line with the 3 HP (2.2 kW) motor and the 6 kn maximum. Implied range on 17.5 kWh without solar: 2 kn &asymp; 500 nm,
+      3 kn &asymp; 222 nm, 4 kn &asymp; 125 nm, 6 kn &asymp; 56 nm. Solar: 270 W panel rating, not included here. The eDNA option (McLane RoCSI) draws about
       5&ndash;8 W while sampling (12 V, 0.4&ndash;0.7 A), which is small next to propulsion. Sources:
       <a href="https://www.openoceanrobotics.com/uncrewed-surface-vehicles" target="_blank" rel="noopener">Open Ocean Robotics</a>,
       <a href="https://www.openoceanrobotics.com/uncrewed-surface-vehicles/dataxplorer-enviro" target="_blank" rel="noopener">DataXplorer Enviro</a>,
@@ -332,7 +332,7 @@ function render() {
     <div class="kpi"><div class="k">Back at ramp</div><div class="v">${hm(end)}${endTag}</div></div>
     <div class="kpi"><div class="k">Total</div><div class="v">${(end - S.launch).toFixed(1)} h <small>${kmOf(S.route).toFixed(1)} km</small></div></div>
     ${condCard()}
-    <div class="kpi" style="grid-column:span 2"><div class="k">Battery, rough</div><div class="v">${e.toFixed(1)} kWh ${e > 3.5 ? '<span class="tag warn">over standard 3.5 kWh</span>' : '<span class="tag ok">within 3.5 kWh</span>'}</div></div>`;
+    <div class="kpi" style="grid-column:span 2"><div class="k">Battery, rough</div><div class="v">${e.toFixed(1)} kWh ${e > 17.5 * 0.8 ? '<span class="tag warn">over 80 % of our 17.5 kWh</span>' : `<span class="tag ok">${Math.round(e / 17.5 * 100)} % of our 17.5 kWh</span>`}</div></div>`;
 
   const flag = h => isNext(h) ? '<span class="n">next day</span>' : isNight(h) ? '<span class="n">dark</span>' : "";
   const li = [`<li data-t="${S.launch}"><div class="dot ramp">&#9679;</div><div><div class="nm">Launch ramp</div><div class="what">in the water</div></div><div class="time">${hm(S.launch)}</div></li>`];
